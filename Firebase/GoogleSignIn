@@ -1,0 +1,202 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Firebase;
+using Firebase.Auth;
+using Google;
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.Networking;
+
+
+public class GoogleSignIn : MonoBehaviour
+{
+
+    /// <summary>
+    public Text txtDebug;
+    /// </summary>
+
+    public Text infoText;
+
+    public Text nombreText;
+
+    public string webClientId = "845107949928-u25aacour7976bf4mge68cftr7lc7ncr.apps.googleusercontent.com";
+
+    public GameObject imgPerfil;
+
+    private Sprite spritePerfil;
+    private Texture2D texPerfil;
+
+    private FirebaseAuth auth;
+    private GoogleSignInConfiguration configuration;
+
+    private void Start()
+    {
+        configuration = new GoogleSignInConfiguration { WebClientId = webClientId, RequestEmail = true, RequestIdToken = true };
+        CheckFirebaseDependencies();
+
+        txtDebug.text += "Awake";
+    }
+
+    private void CheckFirebaseDependencies()
+    {
+        FirebaseApp.CheckAndFixDependenciesAsync().ContinueWith(task =>
+        {
+            if (task.IsCompleted)
+            {
+                if (task.Result == DependencyStatus.Available)
+                    auth = FirebaseAuth.DefaultInstance;
+                else
+                {
+                    AddToInformation("Could not resolve all Firebase dependencies: " + task.Result.ToString());
+
+                    txtDebug.text += "Could not resolve all Firebase dependencies: " + task.Result.ToString();
+                }
+
+            }
+            else
+            {
+                AddToInformation("Dependency check was not completed. Error : " + task.Exception.Message);
+
+                txtDebug.text += "Dependency check was not completed. Error : " + task.Exception.Message;
+            }
+        });
+    }
+
+    public void SignInWithGoogle() { OnSignIn(); }
+    public void SignOutFromGoogle() { OnSignOut(); }
+
+    private void OnSignIn()
+    {
+        GoogleSignIn.Configuration = configuration;
+        GoogleSignIn.Configuration.UseGameSignIn = false;
+        GoogleSignIn.Configuration.RequestIdToken = true;
+        AddToInformation("Calling SignIn");
+
+        GoogleSignIn.DefaultInstance.SignIn().ContinueWith(OnAuthenticationFinished);
+
+        txtDebug.text += "OnSignIN";
+    }
+
+    private void OnSignOut()
+    {
+        AddToInformation("Calling SignOut");
+        GoogleSignIn.DefaultInstance.SignOut();
+    }
+
+    public void OnDisconnect()
+    {
+        AddToInformation("Calling Disconnect");
+        GoogleSignIn.DefaultInstance.Disconnect();
+    }
+
+    internal void OnAuthenticationFinished(Task<GoogleSignInUser> task)
+    {
+        if (task.IsFaulted)
+        {
+            using (IEnumerator<Exception> enumerator = task.Exception.InnerExceptions.GetEnumerator())
+            {
+                if (enumerator.MoveNext())
+                {
+                    GoogleSignIn.SignInException error = (GoogleSignIn.SignInException)enumerator.Current;
+                    AddToInformation("Got Error: " + error.Status + " " + error.Message);
+
+                    txtDebug.text += "Got Error: " + error.Status + " " + error.Message;
+                }
+                else
+                {
+                    AddToInformation("Got Unexpected Exception?!?" + task.Exception);
+
+                    txtDebug.text += "Got Unexpected Exception?!?" + task.Exception;
+                }
+            }
+        }
+        else if (task.IsCanceled)
+        {
+            AddToInformation("Canceled");
+
+            txtDebug.text += "Canceled";
+        }
+        else
+        {
+            AddToInformation("Welcome: " + task.Result.DisplayName + "!");
+            Data.currentName = task.Result.DisplayName;
+            Data.hostNameFirebase = task.Result.DisplayName;
+            nombreText.text = Data.currentName;
+            AddToInformation("Email = " + task.Result.Email);
+            Data.email = task.Result.Email;
+            Data.hostEmailFirebase = task.Result.Email;
+            AddToInformation("Google ID Token = " + task.Result.IdToken);
+            AddToInformation("Email = " + task.Result.Email);
+            AddToInformation("Img URL: " + task.Result.ImageUrl);
+            StartCoroutine (SetImage(task.Result.ImageUrl.OriginalString));
+            SignInWithGoogleOnFirebase(task.Result.IdToken);
+
+            txtDebug.text += "Working";
+        }
+
+    }
+
+    private void SignInWithGoogleOnFirebase(string idToken)
+    {
+        Credential credential = GoogleAuthProvider.GetCredential(idToken, null);
+
+        auth.SignInWithCredentialAsync(credential).ContinueWith(task =>
+        {
+            AggregateException ex = task.Exception;
+            if (ex != null)
+            {
+                if (ex.InnerExceptions[0] is FirebaseException inner && (inner.ErrorCode != 0))
+                {
+                    AddToInformation("\nError code = " + inner.ErrorCode + " Message = " + inner.Message);
+
+                    txtDebug.text += "Dependency check was not completed. Error : " + task.Exception.Message;
+                }
+            }
+            else
+            {
+                AddToInformation("Sign In Successful.");
+
+                txtDebug.text += "Sign In Successful.";
+            }
+        });
+    }
+
+    public void OnSignInSilently()
+    {
+        GoogleSignIn.Configuration = configuration;
+        GoogleSignIn.Configuration.UseGameSignIn = false;
+        GoogleSignIn.Configuration.RequestIdToken = true;
+        AddToInformation("Calling SignIn Silently");
+
+        GoogleSignIn.DefaultInstance.SignInSilently().ContinueWith(OnAuthenticationFinished);
+    }
+
+    public void OnGamesSignIn()
+    {
+        GoogleSignIn.Configuration = configuration;
+        GoogleSignIn.Configuration.UseGameSignIn = true;
+        GoogleSignIn.Configuration.RequestIdToken = false;
+
+        AddToInformation("Calling Games SignIn");
+
+        GoogleSignIn.DefaultInstance.SignIn().ContinueWith(OnAuthenticationFinished);
+    }
+
+    private void AddToInformation(string str) { infoText.text += "\n" + str; }
+
+    IEnumerator SetImage(string url){
+        UnityWebRequest request = UnityWebRequestTexture.GetTexture(url);
+        yield return request.SendWebRequest();
+        if(request.isNetworkError || request.isHttpError){
+            Debug.Log(request.error);
+        }else{
+        texPerfil = ((DownloadHandlerTexture) request.downloadHandler).texture;
+        spritePerfil = Sprite.Create(texPerfil,new Rect(0,0, texPerfil.width, texPerfil.height), new Vector2(0.5f,0.5f));
+        imgPerfil.GetComponent<Image>().overrideSprite = spritePerfil;
+        }
+    }
+
+}
