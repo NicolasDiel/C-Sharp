@@ -1,0 +1,180 @@
+using Firebase.Analytics;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+
+public class AnalyticsEvent : MonoBehaviour
+{
+
+    private void Start()
+    {        
+        SceneManager.sceneLoaded += OnSceneLoaded;
+
+        FirebaseAnalytics.LogEvent(FirebaseAnalytics.EventLevelStart);
+
+        DontDestroyOnLoad(this.gameObject);
+    }
+
+    void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        if (scene.name.Equals("SceneGuest"))
+        {
+            EndQueue();
+            OnCall();
+        }
+
+    }
+
+    public static void LoginEvent()
+    {
+        //Send event
+        Debug.Log("Login");
+
+        FirebaseAnalytics.LogEvent(FirebaseAnalytics.EventLogin);
+        FirebaseDataBase.current.SaveLogin();
+        FirebaseDataBase.current.InitializeDataBase();
+    }
+
+    public static void ClientName()
+    {
+        //Send event
+        Debug.Log("Client");
+
+        FirebaseAnalytics.LogEvent("ClientName", new Parameter("name", Data.validCode));
+    }
+
+    public static void InQueue()
+    {
+        //Send event
+        Debug.Log("InQueue");
+
+        FirebaseAnalytics.LogEvent("InQueue");
+        Timer.current.StartTimer("InQueue");       
+    }
+
+    public static void EndQueue()
+    {
+        int number = Timer.current.StopTimer();
+        FirebaseDataBase.current.SaveTimeOnQueue(number);
+    }
+
+    public static void OnCall()
+    {
+        //Send event
+        Debug.Log("OnCall");
+
+        //txt = "OnCall";
+
+        FirebaseAnalytics.LogEvent("OnCall");
+        Timer.current.StartTimer("OnCall");
+
+        FirebaseDataBase.current.SaveCallStartDate();
+        FirebaseDataBase.current.SaveHostData(Data.hostNameFirebase, Data.hostEmailFirebase);
+    }
+
+    public static void EndCall() 
+    {
+        int numberCall = Timer.current.StopTimer();
+        FirebaseDataBase.current.SaveCallEndDate();
+        FirebaseDataBase.current.SaveTimeOnCall(numberCall);
+
+    }
+
+    public static void WaitingLink()
+    {
+        //Send event
+        Debug.Log("WaitingLink");
+
+        FirebaseAnalytics.LogEvent("WaitingLink");
+        Timer.current.StartTimer("WaitingLink");
+    }
+
+    public static void LinkSent()
+    {      
+        //Send event
+        Debug.Log("LinkSent");
+
+        FirebaseAnalytics.LogEvent("LinkSent");
+        FirebaseDataBase.current.SaveLinkReceived();
+        EndWaitingLink();
+    }
+
+    public static void EndWaitingLink()
+    {
+        int timeWaitingLink = Timer.current.StopTimer();
+        FirebaseDataBase.current.SaveTimeWaitingLink(timeWaitingLink);
+    }
+
+    public static void ClickedLink()
+    {
+        FirebaseDataBase.current.SaveLinkClicked();
+    }
+
+    public static void CurrentScreenCall()
+    {
+        FirebaseDataBase.current.SetCurrentStateToCall();
+    }
+
+    public static void NetPromoterScore(int number)
+    {
+        //Send event
+        Debug.Log("NetPromoterScore");
+
+        FirebaseAnalytics.LogEvent("NPS", new Parameter("Stars", number) );
+        FirebaseDataBase.current.SaveNetPromoterScore(number);
+    }
+
+    public static void Feedback(string text)
+    {
+        //Send event
+        Debug.Log("Feedback");
+
+        FirebaseDataBase.current.SaveFeedback(text);
+    }
+
+    public static void CustomerEffortScore(int number)
+    {
+        //Send event
+        Debug.Log("CustomerEffortScore");
+
+        FirebaseAnalytics.LogEvent("CES", new Parameter("Stars", number));
+        FirebaseDataBase.current.SaveCustomerEffortScore(number);
+    }
+
+    public static void UsedRemoveBackground()
+    {
+        //Send event
+        Debug.Log("UsedRemoveBackground");
+
+        FirebaseAnalytics.LogEvent("UsedRemoveBackground");
+        FirebaseDataBase.current.SaveRemoveBackground();
+    }
+
+
+    public static void UsedCapture()
+    {
+        //Send event
+        Debug.Log("UsedCapture");
+
+        FirebaseAnalytics.LogEvent("UsedCapture");
+        FirebaseDataBase.current.SaveUsedCapture();
+    }
+
+    public static void UsedChat()
+    {
+        //Send event
+        Debug.Log("UsedChat");
+
+        FirebaseAnalytics.LogEvent("UsedChat");
+        FirebaseDataBase.current.SaveUsedChat();
+    }
+
+    public static void UsedBlackboard()
+    {
+        //Send event
+        Debug.Log("UsedBlackboard");
+
+        FirebaseAnalytics.LogEvent("UsedBlackboard");
+        FirebaseDataBase.current.SaveUsedBlackboard();
+    }
+}
