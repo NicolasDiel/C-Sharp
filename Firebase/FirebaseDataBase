@@ -1,0 +1,762 @@
+using System.Collections;
+using UnityEngine;
+using Firebase.Database;
+using Firebase.Auth;
+using Firebase;
+using System;
+using UnityEngine.UI;
+using Random = UnityEngine.Random;
+
+public class FirebaseDataBase : MonoBehaviour
+{
+    public static FirebaseDataBase current;
+
+    public DependencyStatus dependencyStatus;
+    public DatabaseReference dbReference;
+    public FirebaseUser User;
+    public loginWithMail scriptLoginMail;
+
+
+    //Database data
+    [HideInInspector] public string db_SessionID = "null";
+    [HideInInspector] public bool db_Login = false;
+    [HideInInspector] public bool db_MediaLibrary = false;
+    [HideInInspector] public bool db_ArModel = false;
+    [HideInInspector] public int db_TimeOnQueue = 0;
+    [HideInInspector] public int db_TimeOnCall = 0;
+    [HideInInspector] public bool db_UsedChat = false;
+    [HideInInspector] public bool db_RemoveBackground = false;    
+    [HideInInspector] public bool db_UsedGestures = false;
+    [HideInInspector] public bool db_UsedCapture = false;    
+    [HideInInspector] public bool db_UsedBlackboard = false;
+    [HideInInspector] public int db_TimeWaitingLink = 0;
+    [HideInInspector] public bool db_LinkReceived = false;
+    [HideInInspector] public bool db_ClickedLink = false;
+    [HideInInspector] public int db_Nps = 0;
+    [HideInInspector] public int db_Ces = 0;
+    [HideInInspector] public string db_HostEmail= "";
+    [HideInInspector] public string db_HostName = "";
+
+    public Text text;
+
+    public TrackUserJourney scriptTrackUserJourney;
+
+    private void Awake()
+    {
+        DontDestroyOnLoad(this.gameObject);
+
+        GenerateSessionID();
+    }
+
+    private void Start()
+    {
+        current = this;
+
+        //Check that all of the necessary dependencies for Firebase are present on the system
+        FirebaseApp.CheckAndFixDependenciesAsync().ContinueWith(task =>
+        {
+            dependencyStatus = task.Result;
+            if (dependencyStatus == DependencyStatus.Available)
+            {
+                //If they are avalible Initialize Firebase
+                InitializeFirebase();
+            }
+            else
+            {
+                Debug.LogError("Could not resolve all Firebase dependencies: " + dependencyStatus);
+            }
+        });
+    }
+    private void InitializeFirebase()
+    {
+        Debug.Log("Setting up Firebase Database");
+
+        dbReference = FirebaseDatabase.DefaultInstance.RootReference;
+    }
+
+
+    public void InitializeDataBase()
+    {
+        StartCoroutine(UpdateLogin());
+        StartCoroutine(UpdateMediaLibrary());
+        StartCoroutine(UpdateArModel());
+        StartCoroutine(UpdateTimeOnQueue());
+        StartCoroutine(UpdateTimeOnCall());
+        StartCoroutine(UpdateUsedChat());
+        StartCoroutine(UpdateRemovedBackground());
+        StartCoroutine(UpdateUsedGestures());
+        StartCoroutine(UpdateUsedCapture());
+        StartCoroutine(UpdateUsedBlackboard());
+        StartCoroutine(UpdateTimeWaitingLink());
+        StartCoroutine(UpdateLinkReceived());
+        StartCoroutine(UpdateLinkClicked());
+        StartCoroutine(UpdateNps(db_Nps));
+        StartCoroutine(UpdateCes(db_Ces));
+        StartCoroutine(UpdateHostNameDatabase(db_HostName));
+        StartCoroutine(UpdateHostEmailDatabase(db_HostEmail));
+        StartCoroutine(UpdateGuestNameDatabase(Data.currentName));
+        StartCoroutine(UpdateGuestEmailDatabase(Data.email));
+
+        //TrackUserJourney
+        scriptTrackUserJourney.SetQueueState();
+    }
+
+    public void SaveHostData(string name, string email)
+    {
+        db_HostName = name;
+        db_HostEmail = email;        
+
+        StartCoroutine(UpdateHostNameDatabase(db_HostName));
+        StartCoroutine(UpdateHostEmailDatabase(db_HostEmail));
+    }
+
+    private void GenerateSessionID()
+    {
+        string st = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+        db_SessionID = "Call-" + st[Random.Range(0, st.Length)] + st[Random.Range(0, st.Length)] + Random.Range(0, 999999);
+    }
+
+    public void SetCurrentStateToCall()
+    {
+        //TrackUserJourney
+        scriptTrackUserJourney.SetCallState();
+    }
+    
+
+    public void SaveCallStartDate()
+    {
+        //TrackUserJourney
+        scriptTrackUserJourney.SetCallState();
+
+        StartCoroutine(UpdateCallStartDate());
+    }
+    public void SaveCallEndDate()
+    {
+        //TrackUserJourney
+        scriptTrackUserJourney.SetPostAssistedState();
+
+        StartCoroutine(UpdateCallEndDate());
+    }
+
+    public void SaveLogin()
+    {
+        //TrackUserJourney
+        scriptTrackUserJourney.SetMenuState();
+
+        db_Login = true;
+        StartCoroutine(UpdateLogin());
+    }
+    public void SaveMediaLibrary()
+    {
+        //TrackUserJourney
+        scriptTrackUserJourney.SetMediaLibraryState();
+
+        db_MediaLibrary = true;
+        StartCoroutine(UpdateMediaLibrary());
+    }
+    public void SaveArModel()
+    {
+        //TrackUserJourney
+        scriptTrackUserJourney.SetArModelState();
+
+        db_ArModel = true;
+        StartCoroutine(UpdateArModel());
+    }
+
+    public void SaveTimeOnQueue(int number)
+    {
+        db_TimeOnQueue = number;
+        StartCoroutine(UpdateTimeOnQueue());
+    }
+    public void SaveTimeOnCall(int number)
+    {       
+
+        db_TimeOnCall = number;
+        StartCoroutine(UpdateTimeOnCall());
+    }
+
+    public void SaveUsedChat()
+    {
+        //TrackUserJourney
+        scriptTrackUserJourney.SetChatState();
+
+        db_UsedChat = true;
+        StartCoroutine(UpdateUsedChat());
+    }
+
+    public void SaveUsedBlackboard()
+    {
+        //TrackUserJourney
+        scriptTrackUserJourney.SetBlackboardState();
+
+        db_UsedBlackboard = true;
+        StartCoroutine(UpdateUsedBlackboard());
+    }
+
+    public void SaveRemoveBackground()
+    {
+        //TrackUserJourney
+        scriptTrackUserJourney.SetRemoveBackgroundState();
+
+        db_RemoveBackground = true;
+        StartCoroutine(UpdateRemovedBackground());
+    }
+    
+
+    public void SaveUsedGestures()
+    {
+        db_UsedGestures = true;
+        StartCoroutine(UpdateUsedBlackboard());
+    }
+
+    public void SaveUsedCapture()
+    {
+        //TrackUserJourney
+        scriptTrackUserJourney.SetCaptureState();
+
+        db_UsedCapture = true;
+        StartCoroutine(UpdateUsedCapture());
+    }
+
+    public void SaveTimeWaitingLink(int number)
+    {
+        db_TimeWaitingLink = number;
+        StartCoroutine(UpdateTimeWaitingLink());
+    }
+
+    public void SaveLinkReceived()
+    {
+        db_LinkReceived = true;
+        StartCoroutine(UpdateLinkReceived());
+    }
+
+    public void SaveLinkClicked()
+    {
+        db_ClickedLink = true;
+        StartCoroutine(UpdateLinkClicked());
+    }
+
+    public void SaveNetPromoterScore(int number)
+    {
+        db_Nps = number;
+        StartCoroutine(UpdateNps(db_Nps));
+
+        StartCoroutine(UpdateToCodeNps(db_Nps));
+        StartCoroutine(UpdateToGlobalNps(db_Nps));
+    }
+
+    public void SaveCustomerEffortScore(int number)
+    {
+        db_Ces = number;
+        StartCoroutine(UpdateCes(db_Ces));
+
+        StartCoroutine(UpdateToCodeCes(db_Ces));
+        StartCoroutine(UpdateToGlobalCes(db_Ces));
+    }
+
+    public void SaveFeedback(string text)
+    {
+        StartCoroutine(UpdateFeedback(text));
+
+        StartCoroutine(UpdateToCodeFeedback(text));
+        StartCoroutine(UpdateToGlobalFeedback(text));
+    }
+
+
+    /////////////DATABASE////////////////////////   
+
+    private IEnumerator UpdateCallStartDate()
+    {
+        string dateTimeString = DateTime.Now.ToString("d/M/yyyy hh:mm", System.Globalization.CultureInfo.InvariantCulture);
+
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child(Data.validCode).Child("users").Child(SystemInfo.deviceUniqueIdentifier).Child(db_SessionID).Child("CallStartDate").SetValueAsync(dateTimeString);
+
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+    }
+
+    private IEnumerator UpdateCallEndDate()
+    {
+        string dateTimeString = DateTime.Now.ToString("d/M/yyyy hh:mm", System.Globalization.CultureInfo.InvariantCulture);
+
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child(Data.validCode).Child("users").Child(SystemInfo.deviceUniqueIdentifier).Child(db_SessionID).Child("CallEndDate").SetValueAsync(dateTimeString);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+    }
+
+
+    private IEnumerator UpdateHostNameDatabase(string _name)
+    {
+        
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child(Data.validCode).Child("users").Child(SystemInfo.deviceUniqueIdentifier).Child(db_SessionID).Child("HostName").SetValueAsync(_name);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+        yield return new WaitForSeconds(0.001f);
+    }
+
+    private IEnumerator UpdateHostEmailDatabase(string _email)
+    {
+        //Set the currently logged in user email
+        var DBTask = dbReference.Child(Data.validCode).Child("users").Child(SystemInfo.deviceUniqueIdentifier).Child(db_SessionID).Child("HostEmail").SetValueAsync(_email);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //email is now updated
+        }
+    }
+
+    private IEnumerator UpdateGuestNameDatabase(string _name)
+    {
+        
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child(Data.validCode).Child("users").Child(SystemInfo.deviceUniqueIdentifier).Child(db_SessionID).Child("GuestName").SetValueAsync(_name);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+        yield return new WaitForSeconds(0.001f);
+    }
+
+    private IEnumerator UpdateGuestEmailDatabase(string _email)
+    {
+        //Set the currently logged in user email
+        var DBTask = dbReference.Child(Data.validCode).Child("users").Child(SystemInfo.deviceUniqueIdentifier).Child(db_SessionID).Child("GuestEmail").SetValueAsync(_email);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //email is now updated
+        }
+    }
+
+
+
+
+    private IEnumerator UpdateLogin()
+    {
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child(Data.validCode).Child("users").Child(SystemInfo.deviceUniqueIdentifier).Child(db_SessionID).Child("Login").SetValueAsync(db_Login);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+    }
+
+    private IEnumerator UpdateMediaLibrary()
+    {
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child(Data.validCode).Child("users").Child(SystemInfo.deviceUniqueIdentifier).Child(db_SessionID).Child("MediaLibrary").SetValueAsync(db_MediaLibrary);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+    }
+
+    private IEnumerator UpdateArModel()
+    {
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child(Data.validCode).Child("users").Child(SystemInfo.deviceUniqueIdentifier).Child(db_SessionID).Child("ArModel").SetValueAsync(db_ArModel);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+    }
+
+    
+
+
+
+    private IEnumerator UpdateTimeOnQueue()
+    {
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child(Data.validCode).Child("users").Child(SystemInfo.deviceUniqueIdentifier).Child(db_SessionID).Child("TimeOnQueue").SetValueAsync(db_TimeOnQueue);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+    }
+
+    private IEnumerator UpdateTimeOnCall()
+    {
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child(Data.validCode).Child("users").Child(SystemInfo.deviceUniqueIdentifier).Child(db_SessionID).Child("TimeOnCall").SetValueAsync(db_TimeOnCall);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+    }
+
+    private IEnumerator UpdateUsedChat()
+    {
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child(Data.validCode).Child("users").Child(SystemInfo.deviceUniqueIdentifier).Child(db_SessionID).Child("UsedChat").SetValueAsync(db_UsedChat);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+    }
+
+    private IEnumerator UpdateUsedBlackboard()
+    {
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child(Data.validCode).Child("users").Child(SystemInfo.deviceUniqueIdentifier).Child(db_SessionID).Child("UsedBlackboard").SetValueAsync(db_UsedBlackboard);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+    }
+
+    private IEnumerator UpdateRemovedBackground()
+    {
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child(Data.validCode).Child("users").Child(SystemInfo.deviceUniqueIdentifier).Child(db_SessionID).Child("RemovedBackground").SetValueAsync(db_RemoveBackground);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+    }
+    
+    private IEnumerator UpdateUsedGestures()
+    {
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child(Data.validCode).Child("users").Child(SystemInfo.deviceUniqueIdentifier).Child(db_SessionID).Child("UsedGestures").SetValueAsync(db_UsedGestures);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+    }
+
+    private IEnumerator UpdateUsedCapture()
+    {
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child(Data.validCode).Child("users").Child(SystemInfo.deviceUniqueIdentifier).Child(db_SessionID).Child("UsedCapture").SetValueAsync(db_UsedCapture);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+    }        
+
+    private IEnumerator UpdateTimeWaitingLink()
+    {
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child(Data.validCode).Child("users").Child(SystemInfo.deviceUniqueIdentifier).Child(db_SessionID).Child("TimeWaitingLink").SetValueAsync(db_TimeWaitingLink);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+    }
+    
+    private IEnumerator UpdateLinkReceived()
+    {
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child(Data.validCode).Child("users").Child(SystemInfo.deviceUniqueIdentifier).Child(db_SessionID).Child("LinkReceived").SetValueAsync(db_LinkReceived);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+    }
+
+    private IEnumerator UpdateLinkClicked()
+    {
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child(Data.validCode).Child("users").Child(SystemInfo.deviceUniqueIdentifier).Child(db_SessionID).Child("OpenedLink").SetValueAsync(db_ClickedLink);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+    }
+
+    private IEnumerator UpdateNps(int number)
+    {
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child(Data.validCode).Child("users").Child(SystemInfo.deviceUniqueIdentifier).Child(db_SessionID).Child("NPS").SetValueAsync(number);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+    }
+
+    private IEnumerator UpdateToCodeNps(int number)
+    {
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child(Data.validCode).Child("Analytics").Child("NPS").Child(SystemInfo.deviceUniqueIdentifier).Child("NPS").SetValueAsync(number);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+    }
+
+    private IEnumerator UpdateToGlobalNps(int number)
+    {
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child("Analytics").Child("NPS").Child(SystemInfo.deviceUniqueIdentifier).Child("NPS").SetValueAsync(number);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+    }
+
+    private IEnumerator UpdateCes(int number)
+    {
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child(Data.validCode).Child("users").Child(SystemInfo.deviceUniqueIdentifier).Child(db_SessionID).Child("CES").SetValueAsync(number);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+    }
+
+    private IEnumerator UpdateToCodeCes(int number)
+    {
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child(Data.validCode).Child("Analytics").Child("CES").Child(SystemInfo.deviceUniqueIdentifier).Child("CES").SetValueAsync(number);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+    }
+
+    private IEnumerator UpdateToGlobalCes(int number)
+    {
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child("Analytics").Child("CES").Child(SystemInfo.deviceUniqueIdentifier).Child("CES").SetValueAsync(number);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+    }
+
+    private IEnumerator UpdateFeedback(string text)
+    {
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child(Data.validCode).Child("users").Child(SystemInfo.deviceUniqueIdentifier).Child(db_SessionID).Child("NpsFeedback").SetValueAsync(text);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+    }
+    private IEnumerator UpdateToCodeFeedback(string text)
+    {
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child(Data.validCode).Child("Analytics").Child("CES").Child(SystemInfo.deviceUniqueIdentifier).Child("NpsFeedback").SetValueAsync(text);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+    }
+    private IEnumerator UpdateToGlobalFeedback(string text)
+    {
+        //Set the currently logged in user username in the database
+        var DBTask = dbReference.Child("Analytics").Child("CES").Child(SystemInfo.deviceUniqueIdentifier).Child("NpsFeedback").SetValueAsync(text);
+
+        yield return new WaitUntil(predicate: () => DBTask.IsCompleted);
+
+        if (DBTask.Exception != null)
+        {
+            Debug.LogWarning(message: $"Failed to register task with {DBTask.Exception}");
+        }
+        else
+        {
+            //Database username is now updated
+        }
+    }
+
+
+
+}
