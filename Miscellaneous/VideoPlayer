@@ -1,0 +1,112 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.Video;
+using UnityEngine.EventSystems;
+
+public class VideoPlayer : MonoBehaviour
+{
+    public VideoPlayer videoPlayer;
+    public float speed = 10f;
+
+    private bool paused = false;
+
+    private int touchCount = 0;
+
+    [SerializeField] private GameObject rewindImage;
+    [SerializeField] private GameObject forwardImage;
+    [SerializeField] private GameObject playImage;
+    [SerializeField] private GameObject pauseImage;
+
+    // Update is called once per frame
+    public void Rewind()
+    {
+        touchCount += 1;
+
+        if (touchCount == 2)
+        {
+            videoPlayer.time -= speed;
+
+            if (videoPlayer.time < 0)
+                videoPlayer.time = 0;
+
+            touchCount = 0;
+            StopCoroutine("DelayAction");
+
+            rewindImage.SetActive(true);
+            StartCoroutine(HideButtons(0.9f));
+
+            return;
+        }
+        else
+            StartCoroutine(DelayAction(0.3f));
+    }
+
+    public void Forward()
+    {
+        touchCount += 1;
+
+        if (touchCount == 2)
+        {
+            videoPlayer.time += speed;
+            touchCount = 0;
+
+            StopCoroutine("DelayAction");
+
+            forwardImage.SetActive(true);
+            StartCoroutine(HideButtons(0.9f));
+
+            return;
+        }
+        else
+            StartCoroutine(DelayAction(0.3f));
+
+    }
+
+    public void TogglePausePlay()
+    {
+        if (!paused)
+        {
+            videoPlayer.Pause();
+            paused = true;
+
+            playImage.SetActive(true);
+        }            
+        else
+        {
+            videoPlayer.Play();
+            paused = false;
+
+            playImage.SetActive(false);
+            pauseImage.SetActive(true);
+            StartCoroutine(HideButtons(0.5f));
+        }
+    }
+
+    IEnumerator DelayAction(float delayTime)
+    {
+        //Wait for the specified delay time before continuing.
+        yield return new WaitForSeconds(delayTime);
+
+
+        //Do the action after the delay time has finished.
+
+        touchCount = 0;
+
+    }
+
+    IEnumerator HideButtons(float delayTime)
+    {
+        //Wait for the specified delay time before continuing.
+        yield return new WaitForSeconds(delayTime);
+
+
+        //Do the action after the delay time has finished.
+        forwardImage.SetActive(false);
+        rewindImage.SetActive(false);
+        playImage.SetActive(false);
+        pauseImage.SetActive(false);
+
+    }
+}
