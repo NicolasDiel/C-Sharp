@@ -1,0 +1,102 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+
+
+public class TakeScreenshot : MonoBehaviour
+{
+    //public Text txtDebug;
+
+
+    [SerializeField] private GameObject prefabEffect;
+    [SerializeField] private GameObject Canvas;
+    [SerializeField] private Text txtInfo;
+    private bool showText = false;
+    private int counter = 0;
+
+    private static AndroidJavaObject _activity;
+    private const string MediaStoreImagesMediaClass = "android.provider.MediaStore$Images$Media";
+    public static string SaveImageToGallery(Texture2D texture2D, string title, string description)
+    {
+        using (var mediaClass = new AndroidJavaClass(MediaStoreImagesMediaClass))
+        {
+            using (var cr = Activity.Call<AndroidJavaObject>("getContentResolver"))
+            {
+                var image = Texture2DToAndroidBitmap(texture2D);
+                var imageUrl = mediaClass.CallStatic<string>("insertImage", cr, image, title, description);
+                return imageUrl;
+            }
+        }
+    }
+
+    public static AndroidJavaObject Texture2DToAndroidBitmap(Texture2D texture2D)
+    {
+        byte[] encoded = texture2D.EncodeToPNG();
+        using (var bf = new AndroidJavaClass("android.graphics.BitmapFactory"))
+        {
+            return bf.CallStatic<AndroidJavaObject>("decodeByteArray", encoded, 0, encoded.Length);
+        }
+    }
+
+    public static AndroidJavaObject Activity
+    {
+        get
+        {
+            if (_activity == null)
+            {
+                var unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
+                _activity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
+            }
+            return _activity;
+        }
+    }
+
+
+
+    public void OnSaveScreenshotPress()
+    {
+        //Firebase
+        AnalyticsEvent.UsedCapture();
+
+        StartCoroutine(testWait());
+    }
+
+    private IEnumerator testWait()
+    {
+        yield return new WaitForEndOfFrame();
+        var texture = ScreenCapture.CaptureScreenshotAsTexture();
+        
+        string timeStamp = System.DateTime.Now.ToString("dd-MM-yyyy-HH-mm-ss") + ".png";
+        string fileName = "Screenshot" + timeStamp + ".png";
+
+
+        
+        SaveImageToGallery(texture, fileName, "PortonScreenshot");
+        
+        txtInfo.text = "Image saved in gallery " + fileName;
+        showText = true;
+    }
+
+
+    private void Update()
+    {
+        if (showText)
+        {
+            if (counter < 200)
+            {
+                counter++;
+                txtInfo.gameObject.SetActive(true);
+            }
+            else
+                showText = false;
+        }
+        else if (counter > 0)
+        {
+            counter = 0;
+            txtInfo.gameObject.SetActive(false);
+        }
+    }
+
+       
+}
