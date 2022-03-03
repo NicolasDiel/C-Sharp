@@ -1,0 +1,61 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class DrawnOnScreen: MonoBehaviour
+{
+    [SerializeField] private GameObject brush;
+    [SerializeField] private float brushSize = 0.1f;
+
+    public GameObject linePrefab;
+    private GameObject currentLine = null;
+
+    public float zDistance = -0.15f;
+    private int counter = 0;
+
+    public List<Vector3> lineCoordinates = new List<Vector3>();
+
+    // Update is called once per frame
+    void Update()
+    {
+       if (Data.canDraw)
+       {
+
+            if (Input.GetMouseButton(0))
+            {
+                var ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+                RaycastHit hit;
+
+                if (Physics.Raycast(ray, out hit))
+                {
+                    
+                    if (currentLine == null)
+                    {
+                        currentLine = Instantiate(linePrefab);
+                    }
+
+                    var vectorDot = hit.point + Vector3.back * 0.5f;
+
+                    counter++;
+
+                    var line = currentLine.GetComponent<LineRenderer>();
+                    line.positionCount = counter;
+                    line.SetPosition(counter - 1, vectorDot);
+
+                    lineCoordinates.Add(vectorDot);
+
+                    
+                }
+            }
+            if (Input.GetMouseButtonUp(0))
+            {           
+                currentLine = null;
+
+                counter = 0;
+                lineCoordinates.Clear();
+            }
+
+        }
+    }
+
+}
